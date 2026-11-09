@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full font-sans antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sabor & Bolsillo — Planificador de Almuerzos y Presupuesto COP</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        terracotta: {
+                            50: '#FDF7F5',
+                            100: '#FBF0EB',
+                            200: '#F6DBCE',
+                            500: '#D95D39',
+                            600: '#C84B27',
+                            700: '#A43719',
+                            800: '#832B13',
+                            900: '#692512',
+                        },
+                        sage: {
+                            50: '#F4F7F5',
+                            100: '#E6ECE8',
+                            200: '#C9D7CF',
+                            500: '#4A6B5D',
+                            600: '#3B574A',
+                            700: '#2E443A',
+                        },
+                        cream: {
+                            50: '#FFFEFB',
+                            100: '#FDFBF7',
+                            200: '#F7F3EB',
+                            300: '#EFE8DA',
+                        },
+                        charcoal: {
+                            800: '#2C2B29',
+                            900: '#1C1B1A',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                        serif: ['Georgia', 'Cambria', 'serif']
+                    },
+                    boxShadow: {
+                        'soft-warm': '0 10px 30px -5px rgba(200, 75, 39, 0.08), 0 4px 12px -2px rgba(44, 43, 41, 0.04)',
+                        'card-warm': '0 4px 20px -2px rgba(44, 43, 41, 0.05)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Lucide Icons & html2canvas -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <!-- Google Fonts: Playfair Display / Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #FDFBF7;
+            color: #2C2B29;
+        }
+        .font-serif-title {
+            font-family: 'Playfair Display', serif;
+        }
+        .view-transition {
+            animation: fadeIn 0.25s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Style for hidden canvas container */
+        #exportContainer {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+        }
+    </style>
+</head>
+<body class="min-h-full flex flex-col bg-cream-100 text-charcoal-800 selection:bg-terracotta-100 selection:text-terracotta-700">
+
+    <!-- TOP HEADER NAVBAR -->
+    <header class="sticky top-0 z-40 bg-cream-50/90 backdrop-blur-md border-b border-cream-300/60 transition-all">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            
+            <!-- Logo & Brand -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-terracotta-600 to-terracotta-500 flex items-center justify-center text-white shadow-md shadow-terracotta-600/20">
+                    <i data-lucide="chef-hat" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h1 class="font-serif-title font-semibold text-lg sm:text-xl text-charcoal-900 leading-tight">Sabor & Bolsillo</h1>
+                    <p class="text-[11px] text-sage-600 font-medium tracking-wide">Recetas & Presupuesto COP</p>
+                </div>
+            </div>
+
+            <!-- Dashboard View Selector Dropdown Menu -->
+            <div class="relative" id="dropdownMenuContainer">
+                <button onclick="toggleDashboardDropdown()" id="dropdownTrigger" 
+                        class="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-cream-200/80 hover:bg-cream-200 border border-cream-300 text-charcoal-900 text-xs sm:text-sm font-semibold transition active:scale-95 shadow-sm">
+                    <span id="currentDashboardIcon" class="text-terracotta-600 flex items-center">
+                        <i data-lucide="wallet" class="w-4 h-4"></i>
+                    </span>
+                    <span id="currentDashboardLabel" class="hidden sm:inline">Presupuesto & Mercado</span>
+                    <span id="currentDashboardLabelMobile" class="inline sm:hidden">Mercado</span>
+                    <i data-lucide="chevron-down" class="w-4 h-4 text-charcoal-800 opacity-60"></i>
+                </button>
+
+                <!-- Dropdown Card -->
+                <div id="dashboardDropdown" class="hidden absolute right-0 mt-2 w-72 bg-cream-50 rounded-2xl border border-cream-300 shadow-soft-warm py-2 z-50 view-transition">
+                    <div class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-charcoal-800/40">Cambiar Dashboard</div>
+                    
+                    <button onclick="switchDashboard('budget')" class="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs text-left hover:bg-cream-200/60 transition font-medium text-charcoal-800">
+                        <div class="w-7 h-7 rounded-xl bg-terracotta-50 text-terracotta-600 flex items-center justify-center"><i data-lucide="wallet" class="w-4 h-4"></i></div>
+                        <div>
+                            <div class="font-semibold text-charcoal-900">Presupuesto & Mercado</div>
+                            <div class="text-[10px] text-charcoal-800/50">Plan semanal y lista en caja</div>
+                        </div>
+                    </button>
+
+                    <button onclick="switchDashboard('recipes')" class="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs text-left hover:bg-cream-200/60 transition font-medium text-charcoal-800">
+                        <div class="w-7 h-7 rounded-xl bg-sage-50 text-sage-600 flex items-center justify-center"><i data-lucide="utensils" class="w-4 h-4"></i></div>
+                        <div>
+                            <div class="font-semibold text-charcoal-900">Recetas de la Semana</div>
+                            <div class="text-[10px] text-charcoal-800/50">Paso a paso e imagen png</div>
+                        </div>
+                    </button>
+
+                    <button onclick="switchDashboard('exclusions')" class="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs text-left hover:bg-cream-200/60 transition font-medium text-charcoal-800">
+                        <div class="w-7 h-7 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center"><i data-lucide="ban" class="w-4 h-4"></i></div>
+                        <div>
+                            <div class="font-semibold text-charcoal-900">Filtro de Exclusiones</div>
+                            <div class="text-[10px] text-charcoal-800/50">Evitar condimentos o insumos</div>
+                        </div>
+                    </button>
+
+                    <button onclick="switchDashboard('history')" class="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs text-left hover:bg-cream-200/60 transition font-medium text-charcoal-800">
+                        <div class="w-7 h-7 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center"><i data-lucide="bookmark" class="w-4 h-4"></i></div>
+                        <div>
+                            <div class="font-semibold text-charcoal-900">Menús Guardados</div>
+                            <div class="text-[10px] text-charcoal-800/50">Historial de presupuestos</div>
+                        </div>
+                    </button>
+
+                    <div class="border-t border-cream-200 my-1"></div>
+
+                    <button onclick="switchDashboard('settings')" class="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs text-left hover:bg-cream-200/60 transition font-medium text-charcoal-800">
+                        <div class="w-7 h-7 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center"><i data-lucide="settings" class="w-4 h-4"></i></div>
+                        <div>
+                            <div class="font-semibold text-charcoal-900">Ajustes & Respaldo</div>
+                            <div class="text-[10px] text-charcoal-800/50">Exportar/Importar JSON</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- MAIN BODY CONTAINER -->
+    <main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+        <!-- RESUMEN FINANCIERO GLOBAL (Visible en los primeros Dashboards) -->
+        <section class="bg-cream-50 rounded-3xl p-5 sm:p-7 border border-cream-300 shadow-card-warm relative overflow-hidden">
+            <div class="absolute -right-8 -bottom-8 w-36 h-36 bg-terracotta-500/5 rounded-full blur-2xl pointer-events-none"></div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 items-center">
+                
+                <!-- Input Presupuesto Semanal -->
+                <div class="bg-white rounded-2xl p-4 border border-cream-300 shadow-sm">
+                    <label class="block text-[11px] font-bold text-sage-700 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                        <i data-lucide="coins" class="w-3.5 h-3.5 text-terracotta-500"></i> Presupuesto Semanal
+                    </label>
+                    <div class="flex items-center">
+                        <span class="text-charcoal-800/40 font-bold text-lg mr-1">$</span>
+                        <input type="number" id="budgetInput" value="100000" step="5000" min="20000"
+                               class="w-full bg-transparent text-charcoal-900 font-extrabold text-xl outline-none"
+                               oninput="updatePlanCalculations()">
+                    </div>
+                </div>
+
+                <!-- Control de Comensales -->
+                <div class="bg-white rounded-2xl p-4 border border-cream-300 shadow-sm flex items-center justify-between">
+                    <div>
+                        <label class="block text-[11px] font-bold text-sage-700 uppercase tracking-wider mb-0.5">Personas</label>
+                        <span class="text-xs text-charcoal-800/50 font-medium">Porciones/día</span>
+                    </div>
+                    <div class="flex items-center gap-2 bg-cream-100 p-1.5 rounded-xl border border-cream-200">
+                        <button onclick="adjustPeople(-1)" class="w-8 h-8 rounded-lg bg-white hover:bg-cream-200 text-charcoal-900 font-bold flex items-center justify-center transition active:scale-95 shadow-sm">-</button>
+                        <span id="peopleDisplay" class="font-extrabold text-base px-2 text-charcoal-900">1</span>
+                        <button onclick="adjustPeople(1)" class="w-8 h-8 rounded-lg bg-white hover:bg-cream-200 text-charcoal-900 font-bold flex items-center justify-center transition active:scale-95 shadow-sm">+</button>
+                    </div>
+                </div>
+
+                <!-- Total Estimado en Caja -->
+                <div class="bg-gradient-to-br from-terracotta-600 to-terracotta-700 text-white rounded-2xl p-4 shadow-md shadow-terracotta-600/15 flex flex-col justify-between">
+                    <span class="text-[11px] font-semibold text-terracotta-100 uppercase tracking-wider">Total Mercado Caja</span>
+                    <div class="flex items-baseline justify-between mt-1">
+                        <span id="totalCostDisplay" class="text-2xl font-extrabold tracking-tight">$0</span>
+                        <span id="remainingBadge" class="text-xs bg-white/20 px-2 py-0.5 rounded-full font-medium">En tope</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Progress Indicator Bar -->
+            <div class="mt-5 pt-4 border-t border-cream-200">
+                <div class="flex justify-between items-center text-xs font-semibold text-charcoal-800/70 mb-1.5">
+                    <span class="flex items-center gap-1.5">
+                        <i data-lucide="shopping-bag" class="w-3.5 h-3.5 text-sage-600"></i> Uso del Presupuesto (Unidades Enteras)
+                    </span>
+                    <span id="budgetPercentText" class="font-bold text-terracotta-600">0%</span>
+                </div>
+                <div class="w-full h-2.5 bg-cream-200 rounded-full overflow-hidden">
+                    <div id="budgetProgressBar" class="h-full bg-terracotta-500 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== DASHBOARD 1: PRESUPUESTO & MERCADO ==================== -->
+        <section id="dashBudget" class="space-y-6 view-transition">
+            
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="font-serif-title font-semibold text-xl text-charcoal-900">Lista de Mercado Consolidada</h2>
+                    <p class="text-xs text-sage-600 font-medium">Calculada en empaques/unidades completas para pagar en caja de D1 / Ara</p>
+                </div>
+                <button onclick="saveCurrentMenuToHistory()" class="px-3.5 py-2 bg-sage-600 hover:bg-sage-700 text-white text-xs font-semibold rounded-xl transition flex items-center gap-1.5 shadow-sm active:scale-95">
+                    <i data-lucide="bookmark-plus" class="w-4 h-4"></i> Guardar Menú
+                </button>
+            </div>
+
+            <!-- Tabla/Lista de Insumos -->
+            <div class="bg-cream-50 rounded-3xl border border-cream-300 overflow-hidden shadow-card-warm">
+                <div class="p-4 sm:p-5 border-b border-cream-200 bg-cream-100/50 flex justify-between items-center">
+                    <span class="text-xs font-bold text-sage-700 uppercase tracking-wider">Producto y Formato</span>
+                    <span class="text-xs font-bold text-sage-700 uppercase tracking-wider">Subtotal Estimado</span>
+                </div>
+                <div id="groceryListContainer" class="divide-y divide-cream-200">
+                    <!-- Dinámico -->
+                </div>
+            </div>
+
+        </section>
+
+
+        <!-- ==================== DASHBOARD 2: RECETAS DE LA SEMANA ==================== -->
+        <section id="dashRecipes" class="space-y-6 hidden view-transition">
+            
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="font-serif-title font-semibold text-xl text-charcoal-900">Menú Semanal de Almuerzos</h2>
+                    <p class="text-xs text-sage-600 font-medium">Presiona el botón para descargar la tarjeta gráfica por día sin precios</p>
+                </div>
+                <button onclick="regenerateAllMenu()" class="px-3.5 py-2 bg-cream-200 hover:bg-cream-300 text-charcoal-900 text-xs font-semibold rounded-xl border border-cream-300 transition flex items-center gap-1.5 active:scale-95">
+                    <i data-lucide="rotate-cw" class="w-3.5 h-3.5 text-terracotta-600"></i> Reorganizar Todo
+                </button>
+            </div>
+
+            <!-- Tarjetas de Recetas por Día -->
+            <div id="weeklyRecipeCards" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <!-- Dinámico por JS -->
+            </div>
+
+        </section>
+
+
+        <!-- ==================== DASHBOARD 3: FILTRO DE EXCLUSIONES ==================== -->
+        <section id="dashExclusions" class="space-y-6 hidden view-transition">
+            
+            <div class="bg-cream-50 rounded-3xl p-6 border border-cream-300 shadow-card-warm space-y-5">
+                <div>
+                    <h2 class="font-serif-title font-semibold text-xl text-charcoal-900">Ingredientes o Condimentos Excluidos</h2>
+                    <p class="text-xs text-sage-600 font-medium mt-0.5">Cualquier ingrediente que agregues aquí filtrará automáticamente las recetas que lo contengan.</p>
+                </div>
+
+                <!-- Input Exclusión -->
+                <div class="flex gap-2">
+                    <input type="text" id="exclusionInput" placeholder="Ej: cebolla, cilantro, pimentón, cerdo..." 
+                           class="flex-1 bg-white border border-cream-300 rounded-2xl px-4 py-2.5 text-sm outline-none focus:border-terracotta-500 font-medium text-charcoal-900"
+                           onkeypress="if(event.key === 'Enter') addExclusionItem()">
+                    <button onclick="addExclusionItem()" class="px-5 py-2.5 bg-terracotta-600 hover:bg-terracotta-700 text-white font-semibold text-sm rounded-2xl transition active:scale-95 shadow-sm">
+                        Bloquear
+                    </button>
+                </div>
+
+                <!-- Atajos Rápido -->
+                <div>
+                    <span class="text-[11px] font-bold text-sage-700 uppercase tracking-wider block mb-2">Exclusiones Populares:</span>
+                    <div id="quickExclusions" class="flex flex-wrap gap-2">
+                        <!-- Dinámico -->
+                    </div>
+                </div>
+
+                <!-- Lista Activa de Exclusiones -->
+                <div class="pt-4 border-t border-cream-200">
+                    <span class="text-[11px] font-bold text-sage-700 uppercase tracking-wider block mb-2">Actualmente Bloqueados:</span>
+                    <div id="activeExclusionsList" class="flex flex-wrap gap-2">
+                        <!-- Chips activos -->
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+
+        <!-- ==================== DASHBOARD 4: HISTORIAL Y RECIENTES ==================== -->
+        <section id="dashHistory" class="space-y-6 hidden view-transition">
+            
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="font-serif-title font-semibold text-xl text-charcoal-900">Menús Guardados</h2>
+                    <p class="text-xs text-sage-600 font-medium">Guarda tus combinaciones favoritas para consultarlas en el futuro</p>
+                </div>
+            </div>
+
+            <div id="historyListContainer" class="space-y-4">
+                <!-- Se llena mediante JS -->
+            </div>
+
+        </section>
+
+
+        <!-- ==================== DASHBOARD 5: AJUSTES & RESPALDO ==================== -->
+        <section id="dashSettings" class="space-y-6 hidden view-transition">
+            
+            <div class="bg-cream-50 rounded-3xl p-6 border border-cream-300 shadow-card-warm space-y-6">
+                <div>
+                    <h2 class="font-serif-title font-semibold text-xl text-charcoal-900">Ajustes & Respaldo de Datos</h2>
+                    <p class="text-xs text-sage-600 font-medium mt-0.5">Exporta la configuración local a un archivo JSON o restablécela.</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <button onclick="exportDataJSON()" class="p-4 bg-white hover:bg-cream-100 rounded-2xl border border-cream-300 text-left transition space-y-1 group shadow-sm">
+                        <div class="flex items-center gap-2 text-terracotta-600 font-bold text-sm">
+                            <i data-lucide="download" class="w-4 h-4"></i> Exportar Respaldo (.json)
+                        </div>
+                        <p class="text-xs text-charcoal-800/60">Descarga tus listas y exclusiones a tu dispositivo.</p>
+                    </button>
+
+                    <label class="p-4 bg-white hover:bg-cream-100 rounded-2xl border border-cream-300 text-left transition space-y-1 cursor-pointer shadow-sm">
+                        <div class="flex items-center gap-2 text-sage-600 font-bold text-sm">
+                            <i data-lucide="upload" class="w-4 h-4"></i> Importar Respaldo
+                        </div>
+                        <p class="text-xs text-charcoal-800/60">Carga un archivo JSON guardado anteriormente.</p>
+                        <input type="file" accept=".json" onchange="importDataJSON(event)" class="hidden">
+                    </label>
+                </div>
+
+                <div class="pt-4 border-t border-cream-200 flex justify-between items-center">
+                    <div>
+                        <h4 class="text-xs font-bold text-charcoal-900">Restablecer Aplicación</h4>
+                        <p class="text-[11px] text-charcoal-800/50">Borra la memoria local del navegador.</p>
+                    </div>
+                    <button onclick="resetAllApplication()" class="px-3.5 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 rounded-xl text-xs font-semibold transition">
+                        Borrar Datos
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- CONTAINER OCULTO PARA EXPORTAR FOTO / CARD PNG LIMPIA (html2canvas) -->
+    <div id="exportContainer">
+        <div id="exportCard" class="w-[520px] bg-cream-50 text-charcoal-900 p-8 rounded-3xl border border-cream-300 font-sans shadow-2xl">
+            <!-- Canvas Header -->
+            <div class="flex items-center justify-between border-b border-cream-200 pb-5 mb-6">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-12 h-12 rounded-2xl bg-terracotta-600 text-white flex items-center justify-center font-bold">
+                        <i data-lucide="cooking-pot" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <span id="expDayTitle" class="text-xs font-extrabold uppercase tracking-widest text-terracotta-600">Lunes • Almuerzo</span>
+                        <h2 id="expRecipeTitle" class="font-serif-title font-bold text-xl text-charcoal-900 leading-tight">Pechuga a la Plancha</h2>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clean Ingredients list (NO PRICES) -->
+            <div class="mb-6">
+                <h4 class="text-xs font-bold text-sage-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <i data-lucide="shopping-basket" class="w-4 h-4 text-terracotta-600"></i> Ingredientes necesarios:
+                </h4>
+                <div id="expIngredientsGrid" class="grid grid-cols-2 gap-2.5 bg-white rounded-2xl p-4 border border-cream-200 text-xs font-semibold">
+                    <!-- Dinámico -->
+                </div>
+            </div>
+
+            <!-- Paso a Paso -->
+            <div>
+                <h4 class="text-xs font-bold text-sage-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <i data-lucide="flame" class="w-4 h-4 text-amber-600"></i> Modo de Preparación:
+                </h4>
+                <p id="expPrepText" class="text-xs text-charcoal-800 leading-relaxed bg-white rounded-2xl p-4 border border-cream-200">
+                    <!-- Dinámico -->
+                </p>
+            </div>
+
+            <!-- Canvas Footer -->
+            <div class="mt-6 border-t border-cream-200 pt-4 flex justify-between items-center text-[10px] font-medium text-charcoal-800/40">
+                <span>Sabor & Bolsillo • Menú Semanal</span>
+                <span>¡Buen provecho!</span>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // --- BASE DE DATOS CON FORMATO CERRADO DE CAJA D1 / ARA ---
+        const INGREDIENTS_DB = {
+            "pechuga": { name: "Pechuga de Pollo", unit: "Bandeja 500g", price: 11000 },
+            "carne_molida": { name: "Carne Molida Res", unit: "Bandeja 500g", price: 12500 },
+            "huevos": { name: "Huevos A", unit: "Cubeta x30", price: 15500 },
+            "lentejas": { name: "Lentejas", unit: "Paquete 500g", price: 3200 },
+            "frijoles": { name: "Frijol Cargamanto", unit: "Paquete 500g", price: 4800 },
+            "atun": { name: "Atún en Aceite", unit: "Lata 170g", price: 5200 },
+            "cerdo_cañon": { name: "Lomo de Cerdo", unit: "Bandeja 500g", price: 11500 },
+            "carne_desmechada": { name: "Carne Desmechar", unit: "Bandeja 500g", price: 14000 },
+
+            "arroz": { name: "Arroz Blanco", unit: "Bolsa 1kg", price: 4200 },
+            "papa": { name: "Papa Pastusa", unit: "Malla 1kg", price: 3200 },
+            "platano": { name: "Plátano Maduro", unit: "Paquete x3", price: 3500 },
+            "pasta": { name: "Spaghetti", unit: "Paquete 500g", price: 2800 },
+            "yuca": { name: "Yuca Fresca", unit: "Malla 1kg", price: 3800 },
+
+            "tomate": { name: "Tomate Chonto", unit: "Malla 1kg", price: 3500 },
+            "cebolla_huevo": { name: "Cebolla Cabezona", unit: "Malla 1kg", price: 3200 },
+            "cebolla_larga": { name: "Cebolla Larga", unit: "Atado", price: 1800 },
+            "zanahoria": { name: "Zanahoria", unit: "Malla 1kg", price: 2500 },
+            "habichuela": { name: "Habichuela", unit: "Paquete 500g", price: 2200 },
+            "cilantro": { name: "Cilantro Fresco", unit: "Atado", price: 1000 },
+            "ajo": { name: "Ajo Cabeza", unit: "Malla x3", price: 1500 },
+            "pimenton": { name: "Pimentón Rojo", unit: "Unidad", price: 2000 },
+            "lechuga": { name: "Lechuga Crespa", unit: "Unidad", price: 2500 },
+
+            "aceite": { name: "Aceite Vegetal", unit: "Botella 900ml", price: 7500 },
+            "sal": { name: "Sal de Cocina", unit: "Bolsa 1kg", price: 1800 },
+            "comino": { name: "Comino Sazón", unit: "Sobre", price: 1200 },
+            "salsa_tomate": { name: "Salsa de Tomate", unit: "Doypack 200g", price: 2200 }
+        };
+
+        const RECIPES_DB = [
+            {
+                id: "r1",
+                title: "Pechuga a la Plancha con Arroz y Tajadas",
+                category: "Pollo",
+                ingredients: ["pechuga", "arroz", "platano", "aceite", "sal", "ajo"],
+                prep: "Sazonar la pechuga con ajo macerado y sal. Asar a la plancha hasta dorar. Servir con arroz blanco y tajadas fritas de plátano maduro."
+            },
+            {
+                id: "r2",
+                title: "Lentejas Guisadas con Papa y Huevo Frito",
+                category: "Legumbres",
+                ingredients: ["lentejas", "papa", "zanahoria", "cebolla_larga", "tomate", "huevos", "arroz", "comino", "aceite", "sal"],
+                prep: "Cocinar las lentejas con cubos de papa y zanahoria. Hacer sofrito de cebolla larga y tomate. Mezclar y servir con huevo frito y arroz."
+            },
+            {
+                id: "r3",
+                title: "Carne Molida Criolla con Puré de Papa",
+                category: "Carne Res",
+                ingredients: ["carne_molida", "tomate", "cebolla_huevo", "ajo", "papa", "arroz", "aceite", "sal"],
+                prep: "Sofreír la carne molida con abundante tomate, cebolla cabezona y ajo. Acompañar con puré suave de papa pastusa y arroz."
+            },
+            {
+                id: "r4",
+                title: "Spaghetti Bolognesa con Ensalada Fresca",
+                category: "Pasta",
+                ingredients: ["pasta", "carne_molida", "salsa_tomate", "cebolla_huevo", "tomate", "lechuga", "aceite", "sal"],
+                prep: "Hervir la pasta al dente. Preparar la salsa bolognesa sofriendo la carne molida con cebolla y salsa de tomate. Servir con lechuga y tomate."
+            },
+            {
+                id: "r5",
+                title: "Sudado de Cerdo con Papa y Zanahoria",
+                category: "Cerdo",
+                ingredients: ["cerdo_cañon", "tomate", "cebolla_larga", "zanahoria", "papa", "arroz", "aceite", "sal"],
+                prep: "Dorar trozos de cerdo. Añadir ahogado de cebolla larga, tomate, papa y zanahoria con un toque de agua. Cocinar tapado hasta espesar."
+            },
+            {
+                id: "r6",
+                title: "Carne Desmechada en Guiso con Yuca",
+                category: "Carne Res",
+                ingredients: ["carne_desmechada", "tomate", "cebolla_larga", "ajo", "yuca", "arroz", "aceite", "sal"],
+                prep: "Cocinar y desmechar la carne. Mezclar con guiso criollo de tomate y cebolla. Servir junto a yuca cocida y arroz blanco."
+            },
+            {
+                id: "r7",
+                title: "Cazuela de Frijoles con Plátano Maduro",
+                category: "Legumbres",
+                ingredients: ["frijoles", "platano", "zanahoria", "cebolla_larga", "tomate", "arroz", "aceite", "sal"],
+                prep: "Pitada de frijoles con plátano picado y zanahoria rallada para dar consistencia. Finalizar con ahogado criollo y servir con arroz."
+            },
+            {
+                id: "r8",
+                title: "Tortilla de Huevos con Verduras",
+                category: "Huevos",
+                ingredients: ["huevos", "tomate", "cebolla_huevo", "habichuela", "arroz", "aceite", "sal"],
+                prep: "Blanquear habichuelas picadas. Batir los huevos con tomate, cebolla y habichuela. Cuajar a fuego bajo en sartén y servir con arroz."
+            },
+            {
+                id: "r9",
+                title: "Arroz Atollado con Atún y Vegetales",
+                category: "Pescado",
+                ingredients: ["atun", "arroz", "zanahoria", "habichuela", "tomate", "cebolla_larga", "aceite", "sal"],
+                prep: "Cocinar arroz con zanahoria y habichuela en sofrito. Incorporar la lata de atún con su aceite al final para dar sabor."
+            },
+            {
+                id: "r10",
+                title: "Sudado de Pollo Colombiano con Papa y Yuca",
+                category: "Pollo",
+                ingredients: ["pechuga", "papa", "yuca", "tomate", "cebolla_larga", "comino", "arroz", "sal"],
+                prep: "Cocinar presas de pollo junto con papa y yuca en un caldo corto con sofrito de tomate, cebolla y comino."
+            }
+        ];
+
+        const DAYS_OF_WEEK = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+
+        // APP STATE
+        let appState = {
+            budget: 100000,
+            people: 1,
+            exclusions: ["cilantro"],
+            assignedRecipes: [null, null, null, null, null, null, null],
+            savedMenus: []
+        };
+
+        // DOM READY INITIALIZATION
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSavedState();
+            renderExclusionChips();
+            updatePlanCalculations();
+            renderHistoryList();
+            lucide.createIcons();
+            
+            // Close dropdown if clicking outside
+            document.addEventListener('click', (e) => {
+                const container = document.getElementById('dropdownMenuContainer');
+                if (!container.contains(e.target)) {
+                    document.getElementById('dashboardDropdown').classList.add('hidden');
+                }
+            });
+        });
+
+        // LOCAL STORAGE
+        function saveCurrentState() {
+            localStorage.setItem('sabor_bolsillo_app_state', JSON.stringify(appState));
+        }
+
+        function loadSavedState() {
+            const saved = localStorage.getItem('sabor_bolsillo_app_state');
+            if (saved) {
+                try {
+                    appState = JSON.parse(saved);
+                    document.getElementById('budgetInput').value = appState.budget || 100000;
+                    document.getElementById('peopleDisplay').innerText = appState.people || 1;
+                } catch(e) { console.error("Error al cargar datos", e); }
+            }
+        }
+
+        // DROPDOWN DASHBOARD CONTROLLER
+        function toggleDashboardDropdown() {
+            const dropdown = document.getElementById('dashboardDropdown');
+            dropdown.classList.toggle('hidden');
+        }
+
+        function switchDashboard(dashKey) {
+            document.getElementById('dashboardDropdown').classList.add('hidden');
+
+            const dashboards = {
+                'budget': { title: 'Presupuesto & Mercado', icon: 'wallet', id: 'dashBudget' },
+                'recipes': { title: 'Recetas de la Semana', icon: 'utensils', id: 'dashRecipes' },
+                'exclusions': { title: 'Filtro de Exclusiones', icon: 'ban', id: 'dashExclusions' },
+                'history': { title: 'Menús Guardados', icon: 'bookmark', id: 'dashHistory' },
+                'settings': { title: 'Ajustes & Respaldo', icon: 'settings', id: 'dashSettings' }
+            };
+
+            for (let key in dashboards) {
+                const sec = document.getElementById(dashboards[key].id);
+                if (key === dashKey) {
+                    sec.classList.remove('hidden');
+                    document.getElementById('currentDashboardLabel').innerText = dashboards[key].title;
+                    document.getElementById('currentDashboardLabelMobile').innerText = dashboards[key].title.split(' ')[0];
+                    document.getElementById('currentDashboardIcon').innerHTML = `<i data-lucide="${dashboards[key].icon}" class="w-4 h-4"></i>`;
+                } else {
+                    sec.classList.add('hidden');
+                }
+            }
+            lucide.createIcons();
+        }
+
+        function adjustPeople(delta) {
+            if (appState.people + delta >= 1 && appState.people + delta <= 10) {
+                appState.people += delta;
+                document.getElementById('peopleDisplay').innerText = appState.people;
+                updatePlanCalculations();
+            }
+        }
+
+        // EXCLUSIONS MANAGEMENT
+        function renderExclusionChips() {
+            const popularKeys = ["cilantro", "cebolla_huevo", "cebolla_larga", "ajo", "comino", "pimenton", "cerdo_cañon"];
+            const quickContainer = document.getElementById('quickExclusions');
+            quickContainer.innerHTML = '';
+
+            popularKeys.forEach(key => {
+                const ing = INGREDIENTS_DB[key];
+                if (!ing) return;
+                if (!appState.exclusions.includes(key)) {
+                    const btn = document.createElement('button');
+                    btn.className = "text-xs bg-cream-200 hover:bg-cream-300 text-charcoal-800 px-3 py-1 rounded-xl border border-cream-300 font-medium transition active:scale-95";
+                    btn.innerText = "+ " + ing.name;
+                    btn.onclick = () => {
+                        appState.exclusions.push(key);
+                        renderExclusionChips();
+                        updatePlanCalculations();
+                    };
+                    quickContainer.appendChild(btn);
+                }
+            });
+
+            const activeContainer = document.getElementById('activeExclusionsList');
+            activeContainer.innerHTML = '';
+
+            if (appState.exclusions.length === 0) {
+                activeContainer.innerHTML = '<span class="text-xs text-charcoal-800/40 italic">Ningún ingrediente excluido actualmente.</span>';
+                return;
+            }
+
+            appState.exclusions.forEach((key, index) => {
+                let label = INGREDIENTS_DB[key] ? INGREDIENTS_DB[key].name : key;
+                const chip = document.createElement('span');
+                chip.className = "inline-flex items-center gap-1.5 text-xs bg-amber-100 text-amber-800 border border-amber-200 px-3 py-1 rounded-xl font-semibold";
+                chip.innerHTML = `${label} <button onclick="removeExclusion(${index})" class="hover:text-amber-950"><i data-lucide="x" class="w-3 h-3"></i></button>`;
+                activeContainer.appendChild(chip);
+            });
+            lucide.createIcons();
+        }
+
+        function addExclusionItem() {
+            const input = document.getElementById('exclusionInput');
+            const val = input.value.trim().toLowerCase();
+            if (!val) return;
+
+            let matchedKey = val;
+            for (let k in INGREDIENTS_DB) {
+                if (INGREDIENTS_DB[k].name.toLowerCase().includes(val)) {
+                    matchedKey = k;
+                    break;
+                }
+            }
+
+            if (!appState.exclusions.includes(matchedKey)) {
+                appState.exclusions.push(matchedKey);
+                renderExclusionChips();
+                updatePlanCalculations();
+            }
+            input.value = '';
+        }
+
+        function removeExclusion(index) {
+            appState.exclusions.splice(index, 1);
+            renderExclusionChips();
+            updatePlanCalculations();
+        }
+
+        // CORE ENGINE: CALCULATIONS & MEAL ASSIGNMENT
+        function updatePlanCalculations() {
+            appState.budget = parseFloat(document.getElementById('budgetInput').value) || 0;
+
+            // Filtrar recetas sin exclusiones
+            const availableRecipes = RECIPES_DB.filter(recipe => {
+                return !recipe.ingredients.some(ing => {
+                    return appState.exclusions.some(ex => {
+                        if (ing === ex) return true;
+                        if (INGREDIENTS_DB[ing] && INGREDIENTS_DB[ing].name.toLowerCase().includes(ex)) return true;
+                        return false;
+                    });
+                });
+            });
+
+            // Asignar recetas a los 7 días
+            for (let i = 0; i < 7; i++) {
+                if (!appState.assignedRecipes[i] || !availableRecipes.some(r => r.id === appState.assignedRecipes[i].id)) {
+                    if (availableRecipes.length > 0) {
+                        appState.assignedRecipes[i] = availableRecipes[i % availableRecipes.length];
+                    } else {
+                        appState.assignedRecipes[i] = null;
+                    }
+                }
+            }
+
+            // Consolidar compras en empaques cerrados de supermercado
+            const requiredPackages = {};
+            appState.assignedRecipes.forEach(recipe => {
+                if (recipe) {
+                    recipe.ingredients.forEach(ingKey => {
+                        requiredPackages[ingKey] = (requiredPackages[ingKey] || 0) + 1;
+                    });
+                }
+            });
+
+            let totalCostInBox = 0;
+            const groceryItems = [];
+
+            for (let key in requiredPackages) {
+                const ing = INGREDIENTS_DB[key];
+                if (!ing) continue;
+
+                const timesUsed = requiredPackages[key];
+                let qtyToBuy = 1;
+
+                if (["pechuga", "carne_molida", "cerdo_cañon", "carne_desmechada", "atun"].includes(key)) {
+                    qtyToBuy = Math.ceil((timesUsed * appState.people) / 2);
+                } else if (["papa", "tomate", "cebolla_huevo", "zanahoria"].includes(key)) {
+                    qtyToBuy = Math.ceil((timesUsed * appState.people) / 3);
+                } else {
+                    qtyToBuy = Math.ceil(appState.people / 3);
+                }
+
+                const subtotal = qtyToBuy * ing.price;
+                totalCostInBox += subtotal;
+
+                groceryItems.push({
+                    name: ing.name,
+                    unit: ing.unit,
+                    qty: qtyToBuy,
+                    unitPrice: ing.price,
+                    subtotal: subtotal
+                });
+            }
+
+            // Actualizar vista superior
+            document.getElementById('totalCostDisplay').innerText = `$${totalCostInBox.toLocaleString('es-CO')}`;
+
+            const badge = document.getElementById('remainingBadge');
+            const remaining = appState.budget - totalCostInBox;
+            if (remaining >= 0) {
+                badge.innerText = `+$${remaining.toLocaleString('es-CO')} disponible`;
+                badge.className = "text-xs bg-sage-500/20 text-cream-100 px-2 py-0.5 rounded-full font-medium";
+            } else {
+                badge.innerText = `-$${Math.abs(remaining).toLocaleString('es-CO')} exceso`;
+                badge.className = "text-xs bg-rose-500/30 text-rose-100 px-2 py-0.5 rounded-full font-medium";
+            }
+
+            const pct = Math.min(Math.round((totalCostInBox / (appState.budget || 1)) * 100), 100);
+            document.getElementById('budgetPercentText').innerText = `${pct}%`;
+            const bar = document.getElementById('budgetProgressBar');
+            bar.style.width = `${pct}%`;
+            bar.className = totalCostInBox > appState.budget 
+                ? "h-full bg-rose-500 rounded-full transition-all duration-300" 
+                : "h-full bg-terracotta-500 rounded-full transition-all duration-300";
+
+            renderGroceryList(groceryItems);
+            renderRecipeCards();
+            saveCurrentState();
+        }
+
+        // RENDER MERCADO
+        function renderGroceryList(items) {
+            const container = document.getElementById('groceryListContainer');
+            container.innerHTML = '';
+
+            if (items.length === 0) {
+                container.innerHTML = '<div class="p-6 text-center text-xs text-charcoal-800/40">No hay productos requeridos.</div>';
+                return;
+            }
+
+            items.forEach(item => {
+                const row = document.createElement('div');
+                row.className = "p-4 flex items-center justify-between hover:bg-cream-100/60 transition";
+                row.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-xl bg-terracotta-50 text-terracotta-600 font-extrabold text-xs flex items-center justify-center border border-terracotta-100">
+                            ${item.qty}x
+                        </span>
+                        <div>
+                            <h4 class="text-xs font-bold text-charcoal-900">${item.name}</h4>
+                            <span class="text-[11px] text-charcoal-800/50 font-medium">${item.unit} • c/u $${item.unitPrice.toLocaleString('es-CO')}</span>
+                        </div>
+                    </div>
+                    <span class="text-xs font-extrabold text-sage-700 font-mono">$${item.subtotal.toLocaleString('es-CO')} COP</span>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        // RENDER RECETAS
+        function renderRecipeCards() {
+            const container = document.getElementById('weeklyRecipeCards');
+            container.innerHTML = '';
+
+            appState.assignedRecipes.forEach((recipe, dayIdx) => {
+                const card = document.createElement('div');
+                card.className = "bg-cream-50 rounded-3xl p-5 border border-cream-300 shadow-card-warm flex flex-col justify-between space-y-4";
+
+                if (!recipe) {
+                    card.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold uppercase tracking-wider text-sage-700">${DAYS_OF_WEEK[dayIdx]}</span>
+                        </div>
+                        <div class="p-4 bg-cream-200/50 rounded-2xl text-center border border-cream-300">
+                            <i data-lucide="info" class="w-5 h-5 text-amber-600 mx-auto mb-1"></i>
+                            <p class="text-xs text-charcoal-800/60">Sin receta disponible para tus filtros de exclusión.</p>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                    return;
+                }
+
+                const ingBadges = recipe.ingredients.map(k => {
+                    const ing = INGREDIENTS_DB[k];
+                    return ing ? `<span class="inline-block text-[10px] font-semibold bg-white border border-cream-300 text-charcoal-800 px-2 py-0.5 rounded-lg">${ing.name}</span>` : '';
+                }).join(' ');
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-extrabold uppercase tracking-widest text-terracotta-600 bg-terracotta-50 px-2.5 py-1 rounded-full border border-terracotta-100">
+                                ${DAYS_OF_WEEK[dayIdx]}
+                            </span>
+                            <span class="text-[11px] font-medium text-sage-600">${recipe.category}</span>
+                        </div>
+
+                        <h3 class="font-serif-title font-semibold text-lg text-charcoal-900 mb-2">${recipe.title}</h3>
+                        
+                        <p class="text-xs text-charcoal-800/80 leading-relaxed bg-white p-3 rounded-2xl border border-cream-200 mb-3">
+                            <b class="text-sage-700 font-bold block mb-0.5">Preparación:</b> ${recipe.prep}
+                        </p>
+
+                        <div class="space-y-1">
+                            <span class="text-[10px] font-bold text-sage-700 uppercase tracking-wider block">Ingredientes:</span>
+                            <div class="flex flex-wrap gap-1">
+                                ${ingBadges}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-cream-200 flex items-center justify-between">
+                        <button onclick="rotateRecipe(${dayIdx})" class="text-xs text-charcoal-800/70 hover:text-charcoal-900 font-semibold flex items-center gap-1 transition active:scale-95">
+                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-terracotta-600"></i> Cambiar Plato
+                        </button>
+
+                        <button onclick="exportCleanImageCard(${dayIdx})" class="text-xs bg-terracotta-50 hover:bg-terracotta-100 text-terracotta-700 font-bold border border-terracotta-200 px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 active:scale-95 shadow-sm">
+                            <i data-lucide="image" class="w-3.5 h-3.5"></i> Descargar Foto Card
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        function rotateRecipe(dayIdx) {
+            const available = RECIPES_DB.filter(r => !r.ingredients.some(ing => appState.exclusions.includes(ing)));
+            if (available.length === 0) return;
+
+            const current = appState.assignedRecipes[dayIdx];
+            const currentIdx = available.findIndex(r => current && r.id === current.id);
+            const next = available[(currentIdx + 1) % available.length];
+
+            appState.assignedRecipes[dayIdx] = next;
+            updatePlanCalculations();
+        }
+
+        function regenerateAllMenu() {
+            appState.assignedRecipes = [null, null, null, null, null, null, null];
+            updatePlanCalculations();
+        }
+
+        // EXPORT IMAGE (HTML2CANVAS) - CLEAN NO PRICES
+        function exportCleanImageCard(dayIdx) {
+            const recipe = appState.assignedRecipes[dayIdx];
+            if (!recipe) return;
+
+            document.getElementById('expDayTitle').innerText = `${DAYS_OF_WEEK[dayIdx]} • Almuerzo`;
+            document.getElementById('expRecipeTitle').innerText = recipe.title;
+            document.getElementById('expPrepText').innerText = recipe.prep;
+
+            const grid = document.getElementById('expIngredientsGrid');
+            grid.innerHTML = '';
+
+            recipe.ingredients.forEach(k => {
+                const ing = INGREDIENTS_DB[k];
+                if (!ing) return;
+                const item = document.createElement('div');
+                item.className = "flex items-center gap-2 p-2 bg-cream-100/60 rounded-xl text-charcoal-800";
+                item.innerHTML = `<span class="w-2 h-2 rounded-full bg-terracotta-500"></span><span>${ing.name}</span>`;
+                grid.appendChild(item);
+            });
+
+            const target = document.getElementById('exportCard');
+            html2canvas(target, {
+                backgroundColor: '#FDFBF7',
+                scale: 2
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `Receta_${DAYS_OF_WEEK[dayIdx]}_SaborYBolsillo.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        }
+
+        // HISTORY MANAGEMENT
+        function saveCurrentMenuToHistory() {
+            const menuRecord = {
+                id: Date.now(),
+                date: new Date().toLocaleDateString('es-CO', { month: 'short', day: 'numeric', year: 'numeric' }),
+                budget: appState.budget,
+                people: appState.people,
+                recipes: appState.assignedRecipes.map(r => r ? r.title : "Sin plato")
+            };
+            appState.savedMenus.unshift(menuRecord);
+            saveCurrentState();
+            renderHistoryList();
+            alert("¡Menú guardado exitosamente en tu historial!");
+        }
+
+        function renderHistoryList() {
+            const container = document.getElementById('historyListContainer');
+            container.innerHTML = '';
+
+            if (!appState.savedMenus || appState.savedMenus.length === 0) {
+                container.innerHTML = '<div class="bg-cream-50 p-6 rounded-3xl border border-cream-300 text-center text-xs text-charcoal-800/40">No tienes menús guardados en tu historial aún.</div>';
+                return;
+            }
+
+            appState.savedMenus.forEach((record, index) => {
+                const item = document.createElement('div');
+                item.className = "bg-cream-50 p-5 rounded-3xl border border-cream-300 shadow-card-warm flex justify-between items-center";
+                item.innerHTML = `
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-bold text-terracotta-600">${record.date}</span>
+                            <span class="text-[11px] text-charcoal-800/40">• $${record.budget.toLocaleString('es-CO')} COP (${record.people} pers.)</span>
+                        </div>
+                        <p class="text-xs text-charcoal-800 font-medium">${record.recipes.slice(0, 3).join(', ')}...</p>
+                    </div>
+                    <button onclick="deleteHistoryItem(${index})" class="text-rose-500 hover:text-rose-700 p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                `;
+                container.appendChild(item);
+            });
+            lucide.createIcons();
+        }
+
+        function deleteHistoryItem(idx) {
+            appState.savedMenus.splice(idx, 1);
+            saveCurrentState();
+            renderHistoryList();
+        }
+
+        // BACKUP JSON
+        function exportDataJSON() {
+            const str = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
+            const a = document.createElement('a');
+            a.href = str;
+            a.download = `Respaldo_SaborBolsillo_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+        }
+
+        function importDataJSON(evt) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (parsed && parsed.budget) {
+                        appState = parsed;
+                        document.getElementById('budgetInput').value = appState.budget;
+                        document.getElementById('peopleDisplay').innerText = appState.people || 1;
+                        renderExclusionChips();
+                        updatePlanCalculations();
+                        renderHistoryList();
+                        alert("¡Datos importados con éxito!");
+                    }
+                } catch(err) { alert("Archivo JSON no válido."); }
+            };
+            if (evt.target.files[0]) reader.readAsText(evt.target.files[0]);
+        }
+
+        function resetAllApplication() {
+            if (confirm("¿Seguro que deseas restablecer la aplicación?")) {
+                localStorage.removeItem('sabor_bolsillo_app_state');
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
